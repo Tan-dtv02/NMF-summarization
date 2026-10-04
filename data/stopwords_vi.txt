@@ -1,0 +1,47 @@
+# Từ dừng do nhóm bổ sung và điều chỉnh.
+#
+# Chương trình đọc hai tệp:
+#   1. vietnamese-stopwords.txt : kho công khai, khoảng 1.900 từ (giữ nguyên, không sửa).
+#   2. tệp này                  : phần thêm bớt của nhóm.
+#
+# Cách viết, mỗi dòng một từ:
+#   tu          thêm một từ dừng mà kho công khai chưa có
+#   !tu         GIỮ LẠI từ này (không coi là từ dừng) dù kho công khai có liệt kê
+#   # ...       ghi chú
+# Từ nhiều âm tiết viết bằng dấu cách ("kéo dài"); chương trình tự đổi thành
+# dấu gạch dưới cho khớp kết quả tách từ.
+# Sửa tệp xong phải tắt ứng dụng (Ctrl+C) rồi chạy lại thì mới có hiệu lực.
+
+# --- Giữ lại: kho công khai coi là từ dừng, nhưng trong tin tức chúng mang nội dung ---
+!nước
+!bán
+
+# --- Thêm: từ nối câu và từ tường thuật hay gặp trong tin tức ---
+bên cạnh đó
+theo đó
+khi đó
+thế nhưng
+mặc dù
+hầu như
+ví dụ
+cho biết
+biết
+hiện
+khoảng
+
+# --- Thêm: từ chỉ thời gian, mức độ chung chung ---
+phút
+tuần
+trưa
+chiều
+tối
+kéo dài
+
+# --- Thêm: từ lặt vặt kho công khai còn thiếu ---
+hai
+ta
+kia
+đấy
+lắm
+chẳng
+đi

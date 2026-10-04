@@ -1,0 +1,7 @@
+# Giao diện sáng, chữ lớn: dễ đọc qua máy chiếu.
+[theme]
+base = "light"
+baseFontSize = 18
+
+[browser]
+gatherUsageStats = false
