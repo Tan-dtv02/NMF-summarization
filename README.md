@@ -35,15 +35,15 @@ python -m src.evaluate --data data\raw\ten_tep.csv --limit 300 --text-col articl
 
 Kết quả được lưu thành một tệp CSV trong `results/` và hiện ở màn 3. Các tham số:
 
-| Tham số | Ý nghĩa | Mặc định |
-| --- | --- | --- |
-| `--data` | tệp `.csv`, `.jsonl` hoặc `.parquet` | bắt buộc |
-| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu | `text`, `summary` |
-| `--limit` | chỉ chạy trên N bài đầu | tất cả |
-| `--k` | các giá trị k, ví dụ `--k 2 3 4 5` | 2 3 4 5 |
-| `--n-sentences` | số câu của bản tóm tắt | 3 |
-| `--strategy` | `coverage` (phủ chủ đề) hoặc `score` (điểm tổng) | `coverage` |
-| `--seed` | hạt giống ngẫu nhiên | 42 |
+| Tham số                       | Ý nghĩa                                          | Mặc định          |
+| ----------------------------- | ------------------------------------------------ | ----------------- |
+| `--data`                      | tệp `.csv`, `.jsonl` hoặc `.parquet`             | bắt buộc          |
+| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu       | `text`, `summary` |
+| `--limit`                     | chỉ chạy trên N bài đầu                          | tất cả            |
+| `--k`                         | các giá trị k, ví dụ `--k 2 3 4 5`               | 2 3 4 5           |
+| `--n-sentences`               | số câu của bản tóm tắt                           | 3                 |
+| `--strategy`                  | `coverage` (phủ chủ đề) hoặc `score` (điểm tổng) | `coverage`        |
+| `--seed`                      | hạt giống ngẫu nhiên                             | 42                |
 
 ## Dữ liệu
 
@@ -95,10 +95,3 @@ Theo slide chương 4: **V** (m từ × n câu), **W** (m × k, mỗi cột là 
 - **Cách chọn câu** mặc định là phủ chủ đề: mỗi chủ đề lần lượt góp câu mạnh nhất. Cách thứ hai là lấy các câu có điểm tổng cao nhất (Lee và cộng sự, 2009), dễ dồn hết vào một chủ đề.
 - **ROUGE** đếm theo âm tiết (tách bằng khoảng trắng), giữ nguyên dấu. Thư viện `rouge-score` không dùng được vì nó xóa mọi ký tự ngoài a-z, 0-9.
 - **Điều kiện dừng** của NMF: mức giảm sai số của một vòng nhỏ hơn 1e-4 lần sai số ban đầu, hoặc đủ 200 vòng.
-
-## Phân công
-
-- (tên) : `src/nmf_scratch.py`, `app/screen_simulation.py` (Phần 1)
-- (tên) : `src/preprocess.py`, `src/summarizer.py`, `app/screen_summary.py` (Phần 2)
-- (tên) : `src/evaluate.py`, `app/screen_experiment.py`, dữ liệu (Phần 3)
-- (tên) : slide
