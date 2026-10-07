@@ -1,8 +1,19 @@
-"""Kiểm tra ROUGE tự viết trên các ví dụ tính tay được."""
+"""Kiểm tra ROUGE tự viết và các mốc so sánh trên các ví dụ tính tay được."""
+
+import itertools
 
 import pytest
 
-from src.evaluate import lead_n, random_n, rouge_all, rouge_l, rouge_n, rouge_tokens
+from src.evaluate import (
+    lead_n,
+    oracle_label,
+    oracle_n,
+    random_n,
+    rouge_all,
+    rouge_l,
+    rouge_n,
+    rouge_tokens,
+)
 
 THAM_CHIEU = "Con mèo ngồi trên thảm."  # 5 âm tiết: con, mèo, ngồi, trên, thảm
 MAY_TAO = "Con mèo nằm trên thảm"  # khác đúng một âm tiết: nằm thay cho ngồi
@@ -69,3 +80,35 @@ def test_doi_chung():
     assert random_n(cau, 3, seed=1) == random_n(cau, 3, seed=1)  # cùng seed, cùng kết quả
     assert len(set(random_n(cau, 3, seed=1))) == 3
     assert lead_n(cau, 10) == [0, 1, 2, 3, 4]
+
+
+def test_muc_tran_tinh_tay():
+    """Tham chiếu "con mèo đuổi chuột" (4 âm tiết), chọn 2 trong 3 câu."""
+    cau = ["Con mèo ngủ.", "Trời mưa to.", "Mèo đuổi chuột."]
+    # Lượt 1: câu 2 trùng 3 trên 3 âm tiết, F1 = 6/7; câu 0 trùng 2, F1 = 4/7; câu 1 trùng 0.
+    # Lượt 2: thêm câu 0 thì trùng 4 trên 6 âm tiết (F1 = 0,8); thêm câu 1 thì vẫn trùng 3.
+    assert oracle_n(cau, "Con mèo đuổi chuột", 1) == [2]
+    assert oracle_n(cau, "Con mèo đuổi chuột", 2) == [0, 2]  # trả về theo thứ tự trong bài
+    assert oracle_label(2) == "2 câu tốt nhất (mức trần)"
+
+
+def test_muc_tran_lay_dung_so_cau():
+    """Cùng số câu với các phương pháp khác, kể cả khi câu thêm vào làm điểm giảm."""
+    cau = ["Con mèo đuổi chuột.", "Trời mưa to.", "Phở rất ngon."]
+    assert oracle_n(cau, "Con mèo đuổi chuột", 1) == [0]
+    assert len(oracle_n(cau, "Con mèo đuổi chuột", 2)) == 2
+    assert oracle_n(cau, "Con mèo đuổi chuột", 10) == [0, 1, 2]  # bài không đủ câu thì lấy hết
+    assert oracle_n(cau, "Con mèo đuổi chuột", 2) == oracle_n(cau, "Con mèo đuổi chuột", 2)
+
+
+def test_muc_tran_khong_thua_bo_cau_nao_tren_vi_du_nho():
+    """Chọn tham lam trùng với cách thử hết mọi bộ 2 câu trên ví dụ nhỏ này."""
+    cau = ["Con mèo ngủ trên thảm.", "Con chó đuổi con mèo.", "Trời mưa to.", "Mèo bắt chuột."]
+    tham_chieu = "Con mèo bắt chuột trên thảm"
+
+    def diem(bo_cau) -> float:
+        return rouge_n(" ".join(cau[j] for j in bo_cau), tham_chieu, 1)["f"]
+
+    tot_nhat = max(diem(bo) for bo in itertools.combinations(range(len(cau)), 2))
+    assert diem(oracle_n(cau, tham_chieu, 2)) == pytest.approx(tot_nhat)
+    assert diem(oracle_n(cau, tham_chieu, 2)) >= diem(lead_n(cau, 2))

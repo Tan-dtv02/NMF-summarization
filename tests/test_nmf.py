@@ -4,10 +4,13 @@ import numpy as np
 import pytest
 
 from src.nmf_scratch import (
+    best_rank_k_error,
     init_factors,
     nmf,
+    nmf_best_of,
     nmf_step,
     nmf_steps,
+    normalize_columns,
     normalize_topics,
     reconstruction_error,
     sklearn_reference,
@@ -142,3 +145,83 @@ def test_chuan_hoa_giu_nguyen_tich(V):
     W, H = normalize_topics(result.W, result.H)
     np.testing.assert_allclose(W.sum(axis=0), 1.0)
     np.testing.assert_allclose(W @ H, result.W @ result.H)
+
+
+def test_vi_du_man_1_khong_doi(V):
+    """Ví dụ mặc định của màn mô phỏng: dừng sau 8 vòng, sai số 0,339."""
+    result = nmf(V, k=2, seed=42)
+    assert result.n_iter == 8
+    assert round(result.errors[-1], 3) == 0.339
+
+
+# --- Ba hàm phụ của phần tóm tắt -----------------------------------------------
+
+
+def test_chuan_hoa_do_dai_tung_cot():
+    V = np.array([[3.0, 0.0, 1.0], [4.0, 0.0, 1.0]])
+    chuan = normalize_columns(V)
+    np.testing.assert_allclose(chuan[:, 0], [0.6, 0.8])  # (3, 4) dài 5
+    np.testing.assert_allclose(chuan[:, 1], [0.0, 0.0])  # cột toàn 0 giữ nguyên
+    np.testing.assert_allclose(np.linalg.norm(chuan, axis=0), [1.0, 0.0, 1.0])
+    np.testing.assert_allclose(V, [[3.0, 0.0, 1.0], [4.0, 0.0, 1.0]])  # không sửa V gốc
+
+
+def test_chay_nhieu_seed_giu_sai_so_nho_nhat(V):
+    seeds = (0, 1, 2, 3, 4)
+    tot_nhat, seed = nmf_best_of(V, k=2, seeds=seeds)
+    tung_lan = [nmf(V, k=2, seed=s, max_iter=2000, tol=1e-6) for s in seeds]
+    assert tot_nhat.errors[-1] == min(r.errors[-1] for r in tung_lan)
+    assert seed in seeds
+    lan_hai, seed_hai = nmf_best_of(V, k=2, seeds=seeds)  # chạy lại ra đúng kết quả cũ
+    assert seed_hai == seed
+    np.testing.assert_array_equal(lan_hai.W, tot_nhat.W)
+
+
+def test_san_cua_xap_xi_hang_k(V):
+    """Không phép xấp xỉ hạng k nào khớp V tốt hơn mức sàn tính bằng SVD."""
+    for k in (1, 2, 3):
+        san = best_rank_k_error(V, k)
+        assert nmf(V, k, seed=0, max_iter=2000, tol=1e-8).errors[-1] >= san - 1e-9
+    assert best_rank_k_error(V, 1) > best_rank_k_error(V, 2) > best_rank_k_error(V, 3)
+    assert best_rank_k_error(V, min(V.shape)) == pytest.approx(0.0, abs=1e-9)
+    # ma trận hạng 1 thì xấp xỉ hạng 1 không còn sai số
+    assert best_rank_k_error(np.outer([1.0, 2.0, 3.0], [1.0, 0.5]), 1) == pytest.approx(0.0, abs=1e-9)
+
+
+# --- TF-IDF tự viết so với scikit-learn ------------------------------------------
+
+CAU_THU = [
+    ["pin", "pin", "camera", "điện_thoại"],
+    ["camera", "điện_thoại", "giá"],
+    ["phở", "bún", "giá", "giá"],
+    ["bún", "phở"],
+    ["giá", "pin"],
+]
+
+
+def test_tfidf_khop_scikit_learn_sau_khi_quy_doi():
+    """Hai công thức khác nhau ở hai chỗ đã biết, quy đổi xong thì phải trùng:
+
+    scikit-learn (smooth_idf=False, norm=None):  số lần đếm * (ln(N / df) + 1)
+    slide và bản tự viết                      :  (số lần đếm / số từ của câu) * ln(N / df)
+
+    Tức là bỏ phần "+1" (trừ đi số lần đếm) rồi chia cho số từ của câu.
+    scikit-learn xếp câu theo hàng nên phải chuyển vị ở hai đầu.
+    """
+    from sklearn.feature_extraction.text import TfidfTransformer
+
+    parts = tfidf_parts(CAU_THU)
+    thu_vien = TfidfTransformer(norm=None, use_idf=True, smooth_idf=False, sublinear_tf=False)
+    cua_sklearn = thu_vien.fit_transform(parts.counts.T).toarray().T
+    so_tu_moi_cau = parts.counts.sum(axis=0)
+
+    np.testing.assert_allclose(thu_vien.idf_ - 1, parts.idf)  # IDF chỉ lệch nhau đúng 1
+    np.testing.assert_allclose((cua_sklearn - parts.counts) / so_tu_moi_cau, parts.V)
+
+
+def test_chuan_hoa_l2_khop_scikit_learn():
+    """Bước chuẩn hóa độ dài câu cho đúng kết quả của hàm normalize trong thư viện."""
+    from sklearn.preprocessing import normalize
+
+    V = tfidf_parts(CAU_THU).V
+    np.testing.assert_allclose(normalize_columns(V), normalize(V.T, norm="l2").T)

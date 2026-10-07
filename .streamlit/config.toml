@@ -1,7 +1,89 @@
-# Giao diện sáng, chữ lớn: dễ đọc qua máy chiếu.
+# Giao diện của ứng dụng: nền sáng (dễ đọc qua máy chiếu), một màu nhấn xanh đậm,
+# phông Be Vietnam Pro đặt sẵn trong app/static/fonts nên không cần mạng.
+# Màu và bo góc ở đây áp dụng cho các thành phần có sẵn của Streamlit (nút, thanh
+# trượt, ô nhập, bảng). Phần còn lại (thẻ, thanh điều hướng...) nằm ở app/styles.py.
 [theme]
 base = "light"
-baseFontSize = 18
+primaryColor = "#1e3a8a"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f5f9"
+textColor = "#141b2d"
+borderColor = "#dfe4ec"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+baseFontSize = 16
+font = "'Be Vietnam Pro', 'Segoe UI', sans-serif"
+headingFont = "'Be Vietnam Pro', 'Segoe UI', sans-serif"
+headingFontSizes = ["1.75rem", "1.25rem", "1.05rem"]
+headingFontWeights = [700, 600, 600]
+metricValueFontSize = "1.6rem"
+metricValueFontWeight = 600
+dataframeHeaderBackgroundColor = "#f3f5f9"
+dataframeBorderColor = "#e6eaf0"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-latin-400-normal.woff2"
+weight = "400"
+style = "normal"
+unicodeRange = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-vietnamese-400-normal.woff2"
+weight = "400"
+style = "normal"
+unicodeRange = "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-latin-500-normal.woff2"
+weight = "500"
+style = "normal"
+unicodeRange = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-vietnamese-500-normal.woff2"
+weight = "500"
+style = "normal"
+unicodeRange = "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-latin-600-normal.woff2"
+weight = "600"
+style = "normal"
+unicodeRange = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-vietnamese-600-normal.woff2"
+weight = "600"
+style = "normal"
+unicodeRange = "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-latin-700-normal.woff2"
+weight = "700"
+style = "normal"
+unicodeRange = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+
+[[theme.fontFaces]]
+family = "Be Vietnam Pro"
+url = "app/static/fonts/be-vietnam-pro-vietnamese-700-normal.woff2"
+weight = "700"
+style = "normal"
+unicodeRange = "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"
+
+[server]
+# Cho phép phục vụ tệp trong app/static (phông chữ).
+enableStaticServing = true
+
+[client]
+# Ẩn nút Deploy và thực đơn dành cho người lập trình.
+toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false

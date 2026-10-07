@@ -217,7 +217,58 @@ def normalize_topics(W: np.ndarray, H: np.ndarray) -> tuple[np.ndarray, np.ndarr
 
 
 # ---------------------------------------------------------------------------
-# Phần C. Đối chiếu với scikit-learn (chỉ để kiểm tra, không dùng khi tóm tắt)
+# Phần B2. Ba hàm phụ cho phần tóm tắt (màn 2, màn 3). Màn mô phỏng không dùng.
+# ---------------------------------------------------------------------------
+
+
+def normalize_columns(V: np.ndarray) -> np.ndarray:
+    """Chia mỗi cột của V cho độ dài (chuẩn L2) của nó, để mọi câu dài bằng 1.
+
+    Với TF-IDF thô, câu ngắn và câu chứa từ hiếm có giá trị rất lớn. NMF làm
+    nhỏ tổng bình phương sai lệch nên sẽ dồn sức khớp vài câu đó, và chủ đề
+    tìm được bị lệch theo chúng. Đưa mọi câu về cùng độ dài thì câu nào cũng
+    có tiếng nói ngang nhau. Cột toàn số 0 (câu không còn từ khóa) giữ nguyên.
+    """
+    norms = np.linalg.norm(V, axis=0)
+    return V / np.where(norms > 0, norms, 1.0)
+
+
+def nmf_best_of(
+    V: np.ndarray,
+    k: int,
+    seeds: tuple[int, ...] = (0, 1, 2, 3, 4),
+    max_iter: int = 2000,
+    tol: float = 1e-6,
+) -> tuple[NMFResult, int]:
+    """Chạy NMF từ nhiều điểm khởi tạo, trả về (lần có sai số cuối nhỏ nhất, seed của nó).
+
+    NMF chỉ bảo đảm tới một điểm dừng cục bộ, nên mỗi điểm khởi tạo có thể cho
+    một kết quả khác. Thử vài điểm rồi giữ lần khớp V tốt nhất là cách thông
+    dụng để kết quả ít phụ thuộc may rủi. Danh sách seed cố định nên chạy lại
+    vẫn ra đúng kết quả cũ. Hai lần bằng sai số thì giữ lần chạy trước.
+    """
+    best, best_seed = None, seeds[0]
+    for seed in seeds:
+        result = nmf(V, k, seed=seed, max_iter=max_iter, tol=tol)
+        if best is None or result.errors[-1] < best.errors[-1]:
+            best, best_seed = result, seed
+    return best, best_seed
+
+
+def best_rank_k_error(V: np.ndarray, k: int) -> float:
+    """Sai số nhỏ nhất mà BẤT KỲ phép xấp xỉ hạng k nào cũng không thể vượt qua.
+
+    Theo định lý Eckart-Young, xấp xỉ hạng k tốt nhất của V là giữ k giá trị kỳ
+    dị lớn nhất, và sai số Frobenius của nó bằng căn của tổng bình phương các
+    giá trị kỳ dị còn lại. NMF còn thêm ràng buộc không âm nên không thể thấp
+    hơn mức này. Dùng làm "sàn" để biết NMF đã khớp V tới mức nào.
+    """
+    singular_values = np.linalg.svd(V, compute_uv=False)
+    return float(np.sqrt((singular_values[k:] ** 2).sum()))
+
+
+# ---------------------------------------------------------------------------
+# Phần C. Đối chiếu với scikit-learn (chỉ để kiểm tra, không dùng để chọn câu)
 # ---------------------------------------------------------------------------
 
 

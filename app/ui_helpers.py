@@ -17,10 +17,12 @@ import pandas as pd
 TOPIC_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
 
 INK = "#0b0b0b"  # chữ chính
+TOPIC_INK = INK  # chữ trên nền màu chủ đề: luôn sẫm, vì nền luôn nhạt dù giao diện sáng hay tối
 INK_SOFT = "#52514e"  # chữ phụ
 GRID = "#e4e3df"  # đường lưới, mờ hơn dữ liệu
 BLUE = "#2a78d6"
 ORANGE = "#eb6834"
+GREEN = "#1baf7a"
 UP_COLOR = "#cde2fb"  # ô tăng so với trước
 DOWN_COLOR = "#fbd9cc"  # ô giảm so với trước
 
@@ -43,8 +45,8 @@ def topic_chip(topic: int) -> str:
     if topic < 0:
         return '<span class="chip" style="background:#eeeeec">–</span>'
     return (
-        f'<span class="chip" style="background:{tint(topic_color(topic), 0.72)};'
-        f'border-left:6px solid {topic_color(topic)}">CĐ {topic + 1}</span>'
+        f'<span class="chip" style="background:{tint(topic_color(topic), 0.8)}">'
+        f'<i style="background:{topic_color(topic)}"></i>CĐ {topic + 1}</span>'
     )
 
 
@@ -111,9 +113,14 @@ def _styled(chart: alt.Chart | alt.LayerChart) -> alt.Chart | alt.LayerChart:
 def error_chart(errors: list[float], height: int = 260) -> alt.LayerChart:
     """Đường sai số theo số vòng lặp."""
     data = pd.DataFrame({"Vòng lặp": range(len(errors)), "Sai số": errors})
+    # Ở vòng 0 mới có một điểm: tự đặt khoảng của hai trục, nếu không thư viện vẽ trục
+    # chỉ có đúng một vạch và điểm nằm lơ lửng giữa ô.
+    one_point = len(errors) == 1
+    x_scale = alt.Scale(domain=[0, 1]) if one_point else alt.Scale()
+    y_scale = alt.Scale(domain=[0, errors[0] * 1.15]) if one_point else alt.Scale(zero=False)
     base = alt.Chart(data).encode(
-        x=alt.X("Vòng lặp:Q", axis=alt.Axis(tickMinStep=1, grid=False)),
-        y=alt.Y("Sai số:Q", scale=alt.Scale(zero=False), title="Sai số ||V − W·H||"),
+        x=alt.X("Vòng lặp:Q", scale=x_scale, axis=alt.Axis(tickMinStep=1, grid=False)),
+        y=alt.Y("Sai số:Q", scale=y_scale, title="Sai số ||V − W·H||"),
         tooltip=["Vòng lặp:Q", alt.Tooltip("Sai số:Q", format=".4f")],
     )
     line = base.mark_line(color=BLUE, strokeWidth=2)
@@ -166,21 +173,20 @@ def topic_map_chart(H: np.ndarray, sentences: list[str], selected: list[int]) ->
     return _styled((cells + stars).properties(height=56 * k + 100))
 
 
-def k_error_chart(k_values: list[int], errors: list[float], suggested: int) -> alt.LayerChart:
-    """Sai số theo số chủ đề k, đánh dấu giá trị k được gợi ý."""
-    data = pd.DataFrame({"k": k_values, "Sai số": errors})
-    data["Ghi chú"] = np.where(data["k"] == suggested, "gợi ý", "")
-    base = alt.Chart(data).encode(
-        x=alt.X("k:O", title="Số chủ đề k", axis=alt.Axis(labelAngle=0)),
-        y=alt.Y("Sai số:Q", scale=alt.Scale(zero=False), title="Sai số cuối cùng"),
-        tooltip=["k:O", alt.Tooltip("Sai số:Q", format=".4f")],
-    )
-    line = base.mark_line(color=BLUE, strokeWidth=2)
-    points = base.mark_circle(size=90, opacity=1, stroke="white", strokeWidth=2).encode(
-        color=alt.condition(alt.datum.k == suggested, alt.value(ORANGE), alt.value(BLUE))
-    )
-    label = base.mark_text(dy=-16, fontSize=FONT_SIZE, color=INK).encode(text="Ghi chú:N")
-    return _styled((line + points + label).properties(height=280))
+def is_ceiling(method: str) -> bool:
+    """Dòng "mức trần" trong bảng điểm: chọn câu khi đã biết bản tham chiếu."""
+    return "mức trần" in str(method)
+
+
+# Mỗi nhóm phương pháp luôn mang một màu cố định, dù tệp kết quả có nhóm đó hay không.
+METHOD_GROUP_COLORS = {"NMF": BLUE, "Đối chứng": ORANGE, "Mức trần": GREEN}
+
+
+def method_group(method: str) -> str:
+    """Nhóm của một phương pháp trong bảng điểm: NMF, Đối chứng hay Mức trần."""
+    if str(method).startswith("NMF"):
+        return "NMF"
+    return "Mức trần" if is_ceiling(method) else "Đối chứng"
 
 
 def rouge_chart(table: pd.DataFrame) -> alt.FacetChart:
@@ -190,17 +196,18 @@ def rouge_chart(table: pd.DataFrame) -> alt.FacetChart:
         id_vars="phuong_phap", value_vars=list(names), var_name="Độ đo", value_name="F1"
     )
     long["Độ đo"] = long["Độ đo"].map(names)
-    long["Nhóm"] = np.where(long["phuong_phap"].str.startswith("NMF"), "NMF", "Đối chứng")
+    long["Nhóm"] = long["phuong_phap"].map(method_group)
     order = list(table["phuong_phap"])
+    groups = [group for group in METHOD_GROUP_COLORS if group in set(long["Nhóm"])]
 
     base = alt.Chart().encode(
         y=alt.Y("phuong_phap:N", sort=order, title=None),
         x=alt.X("F1:Q", title="F1", axis=alt.Axis(format=".2f", tickCount=4)),
     )
-    bars = base.mark_bar(size=18, cornerRadiusEnd=4).encode(
+    bars = base.mark_bar(size=20, cornerRadiusEnd=5).encode(
         color=alt.Color(
             "Nhóm:N",
-            scale=alt.Scale(domain=["NMF", "Đối chứng"], range=[BLUE, ORANGE]),
+            scale=alt.Scale(domain=groups, range=[METHOD_GROUP_COLORS[g] for g in groups]),
             legend=alt.Legend(title=None, orient="top"),
         ),
         tooltip=["phuong_phap:N", "Độ đo:N", alt.Tooltip("F1:Q", format=".4f")],
@@ -210,7 +217,7 @@ def rouge_chart(table: pd.DataFrame) -> alt.FacetChart:
     )
     chart = (
         alt.layer(bars, values, data=long)
-        .properties(width=170, height=34 * len(order))
+        .properties(width=250, height=38 * len(order))
         .facet(column=alt.Column("Độ đo:N", title=None, sort=list(names.values())))
     )
     return _styled(chart)

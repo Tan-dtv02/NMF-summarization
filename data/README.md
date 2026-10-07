@@ -19,9 +19,14 @@ python -m src.evaluate --data data\raw\ten_tep.csv --text-col article --summary-
 
 Ở màn 3 của ứng dụng cũng có hai ô để gõ tên cột.
 
-## `sample/bai_mau.csv`
+## `sample/`
 
-Sáu bài do nhóm tự soạn, không chép từ báo nào. Tên người, tên trường, tên hãng trong bài đều là tên đặt ra. Mục đích duy nhất là kiểm tra chương trình chạy đúng. Điểm ROUGE trên tệp này không có giá trị làm kết quả thử nghiệm.
+| Tệp | Nội dung |
+| --- | --- |
+| `bai_mau.csv` | 5 bản tin tổng hợp hiện ở màn 2. Mỗi bài 32 đến 35 câu, gồm 3 mảng tin khác hẳn nhau (riêng bài cuối có 2 mảng), mỗi mảng là một đoạn văn. Có tiêu đề và bản tóm tắt tham chiếu nhắc đủ các mảng. |
+| `bai_ngan_mot_chu_de.csv` | 6 bài ngắn của bản trước, mỗi bài 11 đến 12 câu về một chủ đề, giữ nguyên nội dung. Lệnh `python -m src.topic_eval` ghép chúng thành văn bản nhiều mảng có nhãn để đo việc tách chủ đề. |
+
+Các bài mẫu được soạn riêng để chạy thử, không chép từ báo nào. Tên người, tên trường, tên hãng, địa danh trong bài đều là tên đặt ra. Điểm ROUGE trên hai tệp này không có giá trị làm kết quả thử nghiệm.
 
 ## `raw/`
 
@@ -29,11 +34,9 @@ Sáu bài do nhóm tự soạn, không chép từ báo nào. Tên người, tên
 
 ## Từ dừng
 
-Chương trình gộp hai tệp:
+Chương trình đọc một tệp duy nhất, `stopwords_vi.txt`, gồm 1.961 từ:
 
-| Tệp | Nội dung |
-| --- | --- |
-| `vietnamese-stopwords.txt` | Kho từ dừng tiếng Việt công khai, 1.942 từ, của Van-Duyet Le (github.com/stopwords/vietnamese-stopwords), giấy phép MIT (xem `vietnamese-stopwords-LICENSE.txt`). Giữ nguyên, không sửa. |
-| `stopwords_vi.txt` | Phần của nhóm: thêm từ mà kho còn thiếu, và đánh dấu `!` trước những từ muốn giữ lại dù kho có liệt kê (hiện là `!nước`, `!bán`). |
+- Phần 1: kho từ dừng tiếng Việt công khai của Van-Duyet Le (github.com/stopwords/vietnamese-stopwords, 1.942 từ, giấy phép MIT, xem `vietnamese-stopwords-LICENSE.txt`), đã bỏ hai từ "nước" và "bán" vì trong tin tức chúng mang nội dung.
+- Phần 2: 21 từ nhóm bổ sung (từ nối câu, từ tường thuật, từ chỉ thời gian hay gặp trong tin tức).
 
-Sửa `stopwords_vi.txt` xong phải tắt ứng dụng rồi chạy lại thì mới có hiệu lực.
+Mỗi dòng một từ, dòng bắt đầu bằng `#` là ghi chú. Muốn một từ không còn là từ dừng thì xóa dòng đó. Sửa tệp xong phải tắt ứng dụng rồi chạy lại thì mới có hiệu lực.

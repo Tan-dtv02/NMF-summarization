@@ -2,7 +2,8 @@
 
 Tệp này làm ba việc:
   1. Tính ROUGE-1, ROUGE-2, ROUGE-L (tự viết, đếm theo âm tiết tiếng Việt).
-  2. Cung cấp hai phương pháp đối chứng: lấy n câu đầu, chọn n câu ngẫu nhiên.
+  2. Cung cấp ba mốc so sánh: lấy n câu đầu, chọn n câu ngẫu nhiên (hai cách đối
+     chứng), và n câu tốt nhất khi biết trước bản tham chiếu (mức trần).
   3. Chạy tất cả phương pháp trên một tập dữ liệu rồi lưu bảng điểm vào results/.
 
 Chạy từ dòng lệnh (đứng ở thư mục gốc của dự án):
@@ -115,7 +116,7 @@ def rouge_all(candidate: str, reference: str) -> dict[str, float]:
 
 
 # ---------------------------------------------------------------------------
-# Phần B. Hai phương pháp đối chứng
+# Phần B. Các mốc so sánh: hai cách đối chứng và mức trần
 # ---------------------------------------------------------------------------
 
 
@@ -128,6 +129,45 @@ def random_n(sentences: list[str], n: int, seed: int) -> list[int]:
     """Chọn ngẫu nhiên n câu (cố định seed để chạy lại ra cùng kết quả)."""
     rng = random.Random(seed)
     return sorted(rng.sample(range(len(sentences)), min(n, len(sentences))))
+
+
+def oracle_n(sentences: list[str], reference: str, n: int) -> list[int]:
+    """Mức trần ước lượng: n câu của bài cho ROUGE-1 F1 cao nhất so với bản tham chiếu.
+
+    Đây không phải một phương pháp tóm tắt, vì nó được "nhìn đáp án". Nó cho
+    biết một bản tóm tắt TRÍCH NGUYÊN CÂU có thể đạt tới đâu trên bài này: bản
+    tham chiếu do người viết lại bằng lời khác, nên ngay cả chọn câu hoàn hảo
+    cũng không đạt điểm 1.
+
+    Cách chọn là tham lam: mỗi lượt thêm câu làm điểm của cả bản tóm tắt cao
+    nhất, cho đến khi đủ n câu. Thử hết mọi bộ n câu thì chậm, còn tham lam cho
+    kết quả rất gần mức tốt nhất, nên gọi là mức trần ƯỚC LƯỢNG. Bằng điểm thì
+    giữ câu đứng trước trong bài.
+    """
+    reference_counts = Counter(rouge_tokens(reference))
+    n_reference = sum(reference_counts.values())
+    sentence_counts = [Counter(rouge_tokens(s)) for s in sentences]
+
+    chosen: list[int] = []
+    summary_counts: Counter = Counter()
+    for _ in range(min(n, len(sentences))):
+        best_index, best_f = -1, -1.0
+        for j, counts in enumerate(sentence_counts):
+            if j in chosen:
+                continue
+            candidate = summary_counts + counts
+            overlap = sum((candidate & reference_counts).values())
+            f = _prf(overlap, sum(candidate.values()), n_reference)["f"]
+            if f > best_f:
+                best_index, best_f = j, f
+        chosen.append(best_index)
+        summary_counts += sentence_counts[best_index]
+    return sorted(chosen)
+
+
+def oracle_label(n: int) -> str:
+    """Tên hiển thị của mức trần, dùng chung cho bảng điểm và giao diện."""
+    return f"{n} câu tốt nhất (mức trần)"
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +210,8 @@ def evaluate_dataset(
 ) -> tuple[pd.DataFrame, int]:
     """Chấm điểm mọi phương pháp trên mọi bài, trả về (bảng điểm trung bình, số bài dùng được).
 
-    Mỗi bài được tóm tắt bằng: NMF với từng giá trị k, n câu đầu, n câu ngẫu nhiên.
+    Mỗi bài được tóm tắt bằng: NMF với từng giá trị k, n câu đầu, n câu ngẫu
+    nhiên, và n câu tốt nhất khi biết trước bản tham chiếu (mức trần).
     Bài nào quá ngắn để tóm tắt thì bỏ qua cho TẤT CẢ phương pháp, để các
     phương pháp luôn được so trên cùng một tập bài.
     """
@@ -182,7 +223,7 @@ def evaluate_dataset(
         doc = preprocess(text)  # tách từ một lần, dùng lại cho mọi k
         try:
             candidates = {
-                f"NMF (k={k})": summarize_processed(doc, k, n_sentences, strategy, seed).selected
+                f"NMF (k={k})": summarize_processed(doc, k, n_sentences, strategy).selected
                 for k in k_values
             }
         except TextTooShortError:
@@ -191,6 +232,7 @@ def evaluate_dataset(
         candidates[f"{n_sentences} câu ngẫu nhiên"] = random_n(
             doc.sentences, n_sentences, seed + index
         )
+        candidates[oracle_label(n_sentences)] = oracle_n(doc.sentences, reference, n_sentences)
         n_used += 1
         for method, selected in candidates.items():
             summary = " ".join(doc.sentences[j] for j in selected)
@@ -203,7 +245,7 @@ def evaluate_dataset(
 
 
 def is_sample_data(path: str | Path) -> bool:
-    """Tệp nằm trong data/sample/ là dữ liệu mẫu tự soạn, không phải dữ liệu thật."""
+    """Tệp nằm trong data/sample/ là dữ liệu mẫu soạn để chạy thử, không phải dữ liệu thật."""
     return SAMPLE_DIR in Path(path).resolve().parents
 
 
@@ -238,7 +280,7 @@ def run_and_save(
     table["cach_chon_cau"] = strategy
     table["seed"] = seed
     table["tep_du_lieu"] = data_path.name
-    table["loai_du_lieu"] = "du lieu mau tu soan (chay thu)" if sample else "du lieu that"
+    table["loai_du_lieu"] = "du lieu mau (chay thu)" if sample else "du lieu that"
     table["ngay_chay"] = now.strftime("%Y-%m-%d %H:%M")
 
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -267,7 +309,9 @@ def main() -> None:
         default="coverage",
         help="cách chọn câu: coverage = phủ chủ đề, score = điểm tổng",
     )
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--seed", type=int, default=42, help="hạt giống của cách chọn câu ngẫu nhiên"
+    )
     args = parser.parse_args()
 
     def show_progress(done: int, total: int) -> None:
@@ -292,9 +336,7 @@ def main() -> None:
     )
     print(f"\nSố bài dùng được: {table['so_bai'].iloc[0]}. Đã lưu: {out_path}")
     if is_sample_data(args.data):
-        print(
-            "LƯU Ý: đây là dữ liệu mẫu tự soạn, chỉ để chạy thử, không phải kết quả thử nghiệm thật."
-        )
+        print("LƯU Ý: đây là dữ liệu mẫu, chỉ để chạy thử, không phải kết quả thử nghiệm thật.")
 
 
 if __name__ == "__main__":

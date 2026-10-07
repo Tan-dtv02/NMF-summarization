@@ -1,4 +1,4 @@
-"""Tiền xử lý văn bản tiếng Việt: tách câu, chuẩn hóa, tách từ, bỏ từ dừng.
+"""Tiền xử lý văn bản tiếng Việt: làm sạch, tách câu, tách từ, bỏ từ dừng.
 
 Đầu vào là một chuỗi văn bản thô. Đầu ra là danh sách câu gốc (để hiển thị và
 đưa vào bản tóm tắt) cùng danh sách từ khóa của từng câu (để dựng ma trận V).
@@ -38,16 +38,44 @@ except Exception as loi:  # ImportError, hoặc lỗi khi thư viện tự nạp
         stacklevel=2,
     )
 
-# Từ dừng lấy từ hai tệp, đọc theo thứ tự này:
-#   1. kho công khai (khoảng 1.900 từ, github.com/stopwords/vietnamese-stopwords);
-#   2. tệp của nhóm: thêm từ còn thiếu, và nêu những từ muốn GIỮ LẠI dù kho có.
+# Kho từ dừng nằm trong MỘT tệp: kho công khai vietnamese-stopwords (khoảng
+# 1.900 từ) đã gộp với phần bổ sung của nhóm. Nguồn và giấy phép ghi ở đầu tệp.
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-PUBLIC_STOPWORDS_PATH = _DATA_DIR / "vietnamese-stopwords.txt"
 STOPWORDS_PATH = _DATA_DIR / "stopwords_vi.txt"
 
 # Dùng khi không có underthesea: cắt sau dấu kết thúc câu, trước khoảng trắng.
 _SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
 _PUNCT_EDGES = re.compile(r"^\W+|\W+$")
+
+# Đường link, địa chỉ email và tên miền viết trần (vd "tin-tuc.vn/bai-1"). Chúng
+# không phải nội dung, và dấu chấm bên trong làm bộ tách câu cắt nhầm một câu
+# thành nhiều mảnh. Khoảng trắng đứng trước cũng được lấy theo để khi bỏ đường
+# link đi, dấu câu phía sau dính lại vào chữ đứng trước.
+_LINK = re.compile(
+    r"[ \t]*(?:"
+    r"(?:https?://|www\.)[^\s<>\"']+"
+    r"|[\w.+-]+@[\w-]+(?:\.[\w-]+)+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|vn|edu|gov|info|io)(?:\.vn)?\b(?:/[^\s<>\"']*)?"
+    r")",
+    flags=re.IGNORECASE,
+)
+_LINK_TAIL = ".,;:!?…)]}"  # dấu câu dính ở cuối đường link, không thuộc đường link
+
+# Tiếng Việt có hai cách đặt dấu thanh cho vần oa, oe, uy đứng cuối tiếng:
+# kiểu cũ "hòa, khỏe, thủy" và kiểu mới "hoà, khoẻ, thuỷ". Máy coi đó là hai từ
+# khác nhau, nên phải đưa về một kiểu. Chọn kiểu cũ vì bộ tách từ underthesea
+# nhận ra từ ghép viết kiểu cũ tốt hơn hẳn (thử 14 từ ghép: 9 so với 2).
+_TONES = {"a": "àáảãạ", "e": "èéẻẽẹ", "y": "ỳýỷỹỵ", "o": "òóỏõọ", "u": "ùúủũụ"}
+_TONE_OF = {char: (base, i) for base, chars in _TONES.items() for i, char in enumerate(chars)}
+_NOT_LETTER_AHEAD = r"(?![^\W\d_])"  # ngay sau không còn chữ cái: vần đứng cuối tiếng
+# "oà" -> "òa", "oẻ" -> "ỏe", "uỷ" -> "ủy" (không đụng "quý": u ở đó thuộc phụ âm qu)
+_TONE_ON_SECOND = re.compile(
+    rf"(?<![qQ])(?:([oO])([{_TONES['a']}{_TONES['e']}])|([uU])([{_TONES['y']}]))"
+    rf"{_NOT_LETTER_AHEAD}",
+    flags=re.IGNORECASE,
+)
+# "qủa" -> "quả", "qúy" -> "quý": sau q, dấu thanh không bao giờ nằm trên u
+_TONE_ON_QU = re.compile(rf"([qQ])([{_TONES['u']}])([aeyAEY])", flags=re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -64,38 +92,76 @@ def tokenizer_name() -> str:
 
 
 @lru_cache(maxsize=4)
-def load_stopwords(*paths: str | Path) -> frozenset[str]:
-    """Đọc từ dừng từ một hay nhiều tệp (mặc định: kho công khai rồi tệp của nhóm).
+def load_stopwords(path: str | Path = STOPWORDS_PATH) -> frozenset[str]:
+    """Đọc kho từ dừng từ một tệp, mỗi dòng một từ.
 
-    Quy ước trong tệp, mỗi dòng một từ:
-      - dòng bắt đầu bằng "#" là ghi chú;
-      - dòng bắt đầu bằng "!" là NGOẠI LỆ: từ đó được giữ lại, không coi là từ
-        dừng, dù tệp nào khác có liệt kê nó (ví dụ "!nước").
-    Từ nhiều âm tiết được nối bằng dấu gạch dưới cho khớp kết quả tách từ.
-    Tệp không tồn tại thì bỏ qua.
+    Dòng bắt đầu bằng "#" là ghi chú. Từ nhiều âm tiết được nối bằng dấu gạch
+    dưới cho khớp kết quả tách từ. Từ dừng cũng được đưa về cùng kiểu đặt dấu
+    thanh với văn bản (xem normalize_tone), để "toà" trong kho khớp được với
+    "tòa" trong bài. Tệp không tồn tại thì trả về tập rỗng.
     """
-    paths = paths or (PUBLIC_STOPWORDS_PATH, STOPWORDS_PATH)
-    words, kept = set(), set()
-    for path in map(Path, paths):
-        if not path.exists():
-            continue
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = unicodedata.normalize("NFC", line).strip().lower()
-            if not line or line.startswith("#"):
-                continue
-            target = kept if line.startswith("!") else words
-            target.add(line.lstrip("!").strip().replace(" ", "_"))
-    return frozenset(words - kept)
+    path = Path(path)
+    if not path.exists():
+        return frozenset()
+    words = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = normalize_tone(unicodedata.normalize("NFC", line)).strip().lower()
+        if line and not line.startswith("#"):
+            words.add(line.replace(" ", "_"))
+    return frozenset(words)
+
+
+def _with_case(char: str, like: str) -> str:
+    """Viết `char` hoa hay thường theo đúng chữ `like` mà nó thay thế."""
+    return char.upper() if like.isupper() else char
+
+
+def normalize_tone(text: str) -> str:
+    """Đưa cách đặt dấu thanh về một kiểu: "hoà" -> "hòa", "thuỷ" -> "thủy".
+
+    Chỉ đổi vần oa, oe, uy đứng CUỐI tiếng, vì chỉ ở đó hai kiểu mới khác nhau
+    ("hoàn", "khuỷu" thì kiểu nào cũng viết như vậy). Sửa luôn lỗi gõ đặt dấu
+    lên chữ u sau q: "qủa" -> "quả".
+    """
+
+    def to_first_vowel(match: re.Match) -> str:
+        first = match.group(1) or match.group(3)
+        second = match.group(2) or match.group(4)
+        base, tone = _TONE_OF[second.lower()]  # nguyên âm sau và thanh nó đang mang
+        toned_first = _TONES[first.lower()][tone]
+        return _with_case(toned_first, first) + _with_case(base, second)
+
+    def to_vowel_after_qu(match: re.Match) -> str:
+        q, u, vowel = match.groups()
+        _, tone = _TONE_OF[u.lower()]
+        return q + _with_case("u", u) + _with_case(_TONES[vowel.lower()][tone], vowel)
+
+    text = _TONE_ON_SECOND.sub(to_first_vowel, text)
+    return _TONE_ON_QU.sub(to_vowel_after_qu, text)
+
+
+def remove_links(text: str) -> str:
+    """Bỏ đường link, email và tên miền trần; giữ lại dấu câu đứng sau chúng."""
+
+    def keep_tail(match: re.Match) -> str:
+        link = match.group(0)
+        tail = link[len(link.rstrip(_LINK_TAIL)) :]
+        return tail or " "
+
+    return _LINK.sub(keep_tail, text)
 
 
 def normalize(text: str) -> str:
-    """Đưa chữ về dạng Unicode dựng sẵn (NFC) và gom khoảng trắng thừa.
+    """Làm sạch nhẹ: Unicode dựng sẵn (NFC), bỏ đường link, thống nhất dấu thanh,
+    gom khoảng trắng thừa.
 
-    Văn bản dán từ nhiều nguồn có thể viết "ệ" theo hai cách khác nhau về mã
-    ký tự. Không chuẩn hóa thì cùng một từ sẽ bị đếm thành hai từ khác nhau.
+    Văn bản dán từ nhiều nguồn có thể viết cùng một chữ theo nhiều cách: "ệ" có
+    hai cách mã hóa, "hòa" có hai cách đặt dấu. Không chuẩn hóa thì cùng một từ
+    sẽ bị đếm thành hai từ khác nhau.
     """
     text = unicodedata.normalize("NFC", text)
-    return re.sub(r"[ \t ]+", " ", text).strip()
+    text = normalize_tone(remove_links(text))
+    return re.sub(r"[ \t\u00a0]+", " ", text).strip()
 
 
 def split_sentences(text: str) -> list[str]:
