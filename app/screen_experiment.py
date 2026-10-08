@@ -13,6 +13,8 @@ from ui_helpers import METHOD_GROUP_COLORS, is_ceiling, method_group, rouge_char
 from src.evaluate import RESULTS_DIR, ROOT, SAMPLE_DIR, is_sample_data, run_and_save
 
 DATA_SUFFIXES = {".csv", ".jsonl", ".parquet"}
+MAX_ARTICLES = 10_000  # số bài tối đa cho một lần chạy trên giao diện
+STRATEGY_NAMES = {"coverage": "Phủ chủ đề", "score": "Điểm tổng"}
 SCORE_NAMES = {
     "rouge1_f": "ROUGE-1 F1",
     "rouge2_f": "ROUGE-2 F1",
@@ -33,9 +35,7 @@ def _data_files() -> list[Path]:
 
 def _strategy_name(info: pd.Series) -> str:
     """Tên dễ đọc của cách chọn câu đã dùng trong một lần chạy."""
-    return {"coverage": "Phủ chủ đề", "score": "Điểm tổng"}.get(
-        str(info.get("cach_chon_cau")), "không rõ"
-    )
+    return STRATEGY_NAMES.get(str(info.get("cach_chon_cau")), "không rõ")
 
 
 def _result_files() -> list[Path]:
@@ -51,7 +51,10 @@ def _result_files() -> list[Path]:
 
 
 def _run_panel() -> None:
-    """Khung chạy lại thử nghiệm trên một tập nhỏ, ngay trong buổi trình bày."""
+    """Khung chạy lại thử nghiệm ngay trên giao diện: chọn tệp, số bài và cách chọn câu.
+
+    Tên cột được tự nhận (text/summary hoặc article/abstract), xem `load_dataset`.
+    """
     files = _data_files()
     with st.form("run"):
         c_file, c_limit, c_n = st.columns([3, 1, 1])
@@ -59,24 +62,30 @@ def _run_panel() -> None:
             "Tệp dữ liệu",
             files,
             format_func=lambda p: f"{p.name} (dữ liệu mẫu)" if is_sample_data(p) else p.name,
+            help="Tên cột được tự nhận: text/summary hoặc article/abstract.",
         )
-        limit = c_limit.number_input("Số bài", 1, 5000, 30)
+        limit = c_limit.number_input("Số bài", 1, MAX_ARTICLES, 30)
         n_sentences = c_n.number_input("Số câu tóm tắt", 1, 6, 3)
-        c_text, c_summary = st.columns(2)
-        text_col = c_text.text_input("Tên cột nội dung", "text")
-        summary_col = c_summary.text_input("Tên cột tóm tắt tham chiếu", "summary")
+        strategy = st.radio(
+            "Cách chọn câu",
+            list(STRATEGY_NAMES),
+            format_func=STRATEGY_NAMES.get,
+            horizontal=True,
+        )
         submitted = st.form_submit_button("Chạy thử nghiệm", type="primary")
 
     if not submitted:
+        message = st.session_state.pop("run_message", None)
+        if message:
+            st.success(message)
         return
     progress = st.progress(0.0, text="Đang tóm tắt và chấm điểm...")
     try:
         out_path = run_and_save(
             data_path,
-            text_col,
-            summary_col,
             limit=int(limit),
             n_sentences=int(n_sentences),
+            strategy=strategy,
             on_progress=lambda done, total: progress.progress(
                 done / total, text=f"Đã xử lý {done}/{total} bài"
             ),
@@ -87,7 +96,8 @@ def _run_panel() -> None:
         return
     progress.empty()
     st.session_state.shown_result = out_path.name
-    st.success(f"Đã lưu kết quả vào results/{out_path.name}")
+    st.session_state.run_message = f"Đã lưu kết quả vào results/{out_path.name}"
+    st.rerun()  # vẽ lại cả màn để ô "Lần chạy" và bảng điểm chuyển ngay sang lần vừa chạy
 
 
 def _meta_html(info: pd.Series) -> str:
@@ -132,10 +142,10 @@ def render() -> None:
     page_header(
         "Màn 3 · Đánh giá",
         "Thử nghiệm và đánh giá",
-        "Mỗi bài trong tập dữ liệu được tóm tắt bằng NMF với k = 2, 3, 4, 5 và bằng hai cách "
-        "đối chứng: lấy các câu đầu bài, chọn câu ngẫu nhiên. Bản tóm tắt được so với bản "
-        "tham chiếu do người viết bằng ROUGE (tỉ lệ từ trùng nhau). Dòng “mức trần” cho biết "
-        "điểm cao nhất mà một bản trích nguyên câu có thể đạt.",
+        "Mỗi bài trong tập dữ liệu được tóm tắt bằng NMF với k = 2, 3, 4, 5, bằng hai cách "
+        "đối chứng (lấy các câu đầu bài, chọn câu ngẫu nhiên) và bằng cách lấy các câu tốt "
+        "nhất khi đã biết bản tham chiếu (mức trần). Bản tóm tắt được so với bản tham chiếu "
+        "do người viết bằng ROUGE (tỉ lệ từ trùng nhau).",
     )
 
     with card("run"):
@@ -148,7 +158,7 @@ def render() -> None:
                 names,
                 index=names.index(shown) if shown in names else 0,
             )
-        with st.expander("Chạy lại trên một tập nhỏ", expanded=not files):
+        with st.expander("Chạy lại thử nghiệm", expanded=not files):
             _run_panel()
         if not files:
             st.info(
@@ -216,9 +226,3 @@ def render() -> None:
                 "p: precision (bao nhiêu phần của bản máy tạo có trong bản tham chiếu). "
                 "r: recall (bao nhiêu phần của bản tham chiếu được bản máy tạo nhắc lại). f: F1."
             )
-
-        st.caption(
-            "Cách đọc: bản tham chiếu thường do người viết diễn đạt lại chứ không trích nguyên "
-            "câu, nên điểm tuyệt đối của mọi phương pháp trích xuất đều không cao. Điều đáng so "
-            "sánh là thứ hạng giữa các phương pháp."
-        )

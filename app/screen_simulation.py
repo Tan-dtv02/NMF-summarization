@@ -82,7 +82,8 @@ def render() -> None:
         "Màn 1 · Thuật toán",
         "Mô phỏng thuật toán NMF",
         "NMF tách ma trận <b>V</b> (từ × câu) thành tích của hai ma trận không âm: <b>W</b> "
-        "(từ × chủ đề) và <b>H</b> (chủ đề × câu), sao cho <b>W·H ≈ V</b>.",
+        "(từ × chủ đề) và <b>H</b> (chủ đề × câu), sao cho "
+        '<b style="white-space:nowrap">W·H ≈ V</b>.',
     )
 
     # ----- Bước 1: từ văn bản đến ma trận V -------------------------------
@@ -131,9 +132,13 @@ def render() -> None:
             r"\qquad \text{rồi} \qquad "
             r"W \leftarrow W \odot \frac{VH^{\top}}{WHH^{\top}}"
         )
+        st.latex(
+            r"\text{Learning rate:}\quad \eta_H = \frac{H}{W^{\top}WH}"
+            r"\qquad \eta_W = \frac{W}{WHH^{\top}}"
+        )
         st.caption(
-            "Dấu ⊙ và dấu gạch phân số là nhân, chia theo từng ô. Chỉ nhân và chia các số "
-            "không âm nên W và H luôn không âm."
+            r"Thay η vào bước gradient descent $H \leftarrow H - \eta_H \odot (W^{\top}WH - "
+            r"W^{\top}V)$ thì ra đúng công thức nhân ở trên. Với W cũng vậy."
         )
 
         option_k, option_seed, option_color = st.columns([1, 1, 2])
@@ -246,11 +251,7 @@ def render() -> None:
                 st.info("Hãy chạy ít nhất một vòng rồi bấm lại để so sánh.")
                 return
             W_sk, H_sk, error_sk = sklearn_reference(V, sim["W0"], sim["H0"], n_iter)
-            st.write(
-                f'Chạy `sklearn.decomposition.NMF(solver="mu")` từ cùng điểm khởi tạo, đúng '
-                f"{n_iter} vòng. Thư viện đặt tài liệu theo hàng nên kết quả được chuyển vị lại "
-                "cho khớp ký hiệu của slide."
-            )
+            st.write(f"Chạy sklearn đúng {n_iter} vòng.")
             diff = max(np.abs(sim["W"] - W_sk).max(), np.abs(sim["H"] - H_sk).max())
             c1, c2, c3 = st.columns(3)
             c1.metric("Sai số, bản tự viết", f"{errors[-1]:.6f}")

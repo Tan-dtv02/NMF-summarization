@@ -30,7 +30,7 @@ Trình duyệt tự mở ở `http://localhost:8501`. Chọn màn ở thanh đi�
 
 ```
 python -m src.evaluate --data data\sample\bai_mau.csv
-python -m src.evaluate --data data\raw\ten_tep.csv --limit 300 --text-col article --summary-col abstract
+python -m src.evaluate --data data\raw\test_desegmented.jsonl --limit 300
 ```
 
 Kết quả được lưu thành một tệp CSV `results/rouge_<tệp dữ liệu>_<ngày giờ>.csv` và hiện ở màn 3 (lần chạy mới nhất đứng đầu danh sách). Mỗi lần chạy chấm NMF với từng giá trị k, hai cách đối chứng và mức trần trên cùng một tập bài. Các tham số:
@@ -38,12 +38,16 @@ Kết quả được lưu thành một tệp CSV `results/rouge_<tệp dữ li�
 | Tham số                       | Ý nghĩa                                          | Mặc định          |
 | ----------------------------- | ------------------------------------------------ | ----------------- |
 | `--data`                      | tệp `.csv`, `.jsonl` hoặc `.parquet`             | bắt buộc          |
-| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu       | `text`, `summary` |
+| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu       | tự nhận (*)       |
 | `--limit`                     | chỉ chạy trên N bài đầu                          | tất cả            |
 | `--k`                         | các giá trị k, ví dụ `--k 2 3 4 5`               | 2 3 4 5           |
 | `--n-sentences`               | số câu của bản tóm tắt                           | 3                 |
 | `--strategy`                  | `coverage` (phủ chủ đề) hoặc `score` (điểm tổng) | `coverage`        |
 | `--seed`                      | hạt giống của cách đối chứng chọn câu ngẫu nhiên | 42                |
+
+(*) Hai cặp tên cột được tự nhận: `text`/`summary` (dữ liệu mẫu) và `article`/`abstract` (VietNews). Tệp dùng tên cột khác thì phải chỉ ra bằng hai tham số này.
+
+Màn 3 cũng chạy lại được ngay trên giao diện (khung "Chạy lại thử nghiệm"): chọn tệp, số bài (tối đa 10.000) và cách chọn câu, tên cột được tự nhận.
 
 ## Thử nghiệm tách chủ đề
 
@@ -104,7 +108,7 @@ Cách đọc cho đúng:
 python -m pytest
 ```
 
-Có 103 bài kiểm tra: NMF tự viết so với scikit-learn (trên ví dụ nhỏ và trên bài mẫu), TF-IDF so với tính tay và so với scikit-learn, ROUGE và mức trần so với tính tay, làm sạch văn bản, kho từ dừng, tóm tắt (kể cả việc tách đúng các mảng của 5 bản tin mẫu), thử nghiệm tách chủ đề, và ba màn của giao diện.
+Có 105 bài kiểm tra: NMF tự viết so với scikit-learn (trên ví dụ nhỏ và trên bài mẫu), TF-IDF so với tính tay và so với scikit-learn, ROUGE và mức trần so với tính tay, làm sạch văn bản, kho từ dừng, tóm tắt (kể cả việc tách đúng các mảng của 5 bản tin mẫu), thử nghiệm tách chủ đề, và ba màn của giao diện.
 
 ## Cấu trúc thư mục
 

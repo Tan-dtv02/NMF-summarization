@@ -9,13 +9,12 @@ Tệp này làm ba việc:
 Chạy từ dòng lệnh (đứng ở thư mục gốc của dự án):
 
     python -m src.evaluate --data data/sample/bai_mau.csv
-    python -m src.evaluate --data data/raw/vietnews.csv --limit 300 ^
-        --text-col article --summary-col abstract
+    python -m src.evaluate --data data/raw/test_desegmented.jsonl --limit 300
 
 ĐỊNH DẠNG DỮ LIỆU: tệp .csv, .jsonl hoặc .parquet, mỗi dòng một bài, có hai cột:
-    text     nội dung bài
-    summary  bản tóm tắt tham chiếu do người viết
-Nếu tệp dùng tên cột khác thì chỉ ra bằng --text-col và --summary-col.
+nội dung bài và bản tóm tắt tham chiếu do người viết. Hai cặp tên cột được tự
+nhận: text/summary (dữ liệu mẫu) và article/abstract (VietNews). Tệp dùng tên
+cột khác thì chỉ ra bằng --text-col và --summary-col.
 
 Vì sao tự viết ROUGE: thư viện `rouge-score` xóa mọi ký tự ngoài a-z và 0-9
 trước khi đếm, nên "điện thoại" bị cắt thành "i", "n", "tho", "i". Điểm tính ra
@@ -175,10 +174,25 @@ def oracle_label(n: int) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Các cặp tên cột (nội dung, tóm tắt tham chiếu) được tự nhận, xét theo thứ tự này.
+KNOWN_COLUMNS = (("text", "summary"), ("article", "abstract"))
+
+
+def detect_columns(columns) -> tuple[str, str] | None:
+    """Cặp tên cột quen thuộc đầu tiên có đủ trong tệp, hoặc None nếu không có cặp nào."""
+    for text_col, summary_col in KNOWN_COLUMNS:
+        if text_col in columns and summary_col in columns:
+            return text_col, summary_col
+    return None
+
+
 def load_dataset(
-    path: str | Path, text_col: str = "text", summary_col: str = "summary"
+    path: str | Path, text_col: str | None = None, summary_col: str | None = None
 ) -> pd.DataFrame:
-    """Đọc tập dữ liệu, trả về bảng có đúng hai cột `text` và `summary`."""
+    """Đọc tập dữ liệu, trả về bảng có đúng hai cột `text` và `summary`.
+
+    Không chỉ ra tên cột thì tự nhận theo KNOWN_COLUMNS.
+    """
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix == ".csv":
@@ -189,6 +203,18 @@ def load_dataset(
         df = pd.read_parquet(path)
     else:
         raise ValueError(f"Chưa hỗ trợ định dạng {suffix}. Hãy dùng .csv, .jsonl hoặc .parquet.")
+
+    if text_col is None and summary_col is None:
+        found = detect_columns(df.columns)
+        if found is None:
+            raise ValueError(
+                f"Không tự nhận được tên cột của tệp {path.name}: cần có cặp cột text/summary "
+                f"hoặc article/abstract. Các cột hiện có: {list(df.columns)}. Tệp có tên cột "
+                "khác thì chạy bằng dòng lệnh với --text-col và --summary-col."
+            )
+        text_col, summary_col = found
+    elif text_col is None or summary_col is None:
+        raise ValueError("Cần chỉ ra cả tên cột nội dung lẫn tên cột tóm tắt tham chiếu.")
 
     missing = [c for c in (text_col, summary_col) if c not in df.columns]
     if missing:
@@ -251,8 +277,8 @@ def is_sample_data(path: str | Path) -> bool:
 
 def run_and_save(
     data_path: str | Path,
-    text_col: str = "text",
-    summary_col: str = "summary",
+    text_col: str | None = None,
+    summary_col: str | None = None,
     limit: int | None = None,
     k_values: tuple[int, ...] = (2, 3, 4, 5),
     n_sentences: int = 3,
@@ -298,8 +324,14 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Thử nghiệm tóm tắt bằng NMF và chấm ROUGE.")
     parser.add_argument("--data", required=True, help="tệp .csv, .jsonl hoặc .parquet")
-    parser.add_argument("--text-col", default="text", help="tên cột nội dung bài")
-    parser.add_argument("--summary-col", default="summary", help="tên cột tóm tắt tham chiếu")
+    parser.add_argument(
+        "--text-col", default=None, help="tên cột nội dung bài (mặc định: tự nhận text/article)"
+    )
+    parser.add_argument(
+        "--summary-col",
+        default=None,
+        help="tên cột tóm tắt tham chiếu (mặc định: tự nhận summary/abstract)",
+    )
     parser.add_argument("--limit", type=int, default=None, help="chỉ chạy trên N bài đầu")
     parser.add_argument("--k", type=int, nargs="+", default=[2, 3, 4, 5], help="các giá trị k")
     parser.add_argument("--n-sentences", type=int, default=3, help="số câu của bản tóm tắt")

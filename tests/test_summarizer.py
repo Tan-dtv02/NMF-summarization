@@ -6,7 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.evaluate import SAMPLE_DIR, evaluate_dataset, is_sample_data, load_dataset
+from src.evaluate import (
+    SAMPLE_DIR,
+    detect_columns,
+    evaluate_dataset,
+    is_sample_data,
+    load_dataset,
+)
 from src.nmf_scratch import nmf
 from src.preprocess import (
     STOPWORDS_PATH,
@@ -300,11 +306,30 @@ def test_sau_bai_ngan_cu_van_con():
     assert all(10 <= len(split_sentences(t)) <= 13 for t in df["text"])
 
 
+def test_tu_nhan_ten_cot(tmp_path):
+    """Hai cặp tên cột quen thuộc được tự nhận, không cần gõ tên cột."""
+    assert detect_columns(["title", "article", "abstract"]) == ("article", "abstract")
+    assert detect_columns(["id", "text", "summary"]) == ("text", "summary")
+    assert detect_columns(["noi_dung", "tom_tat"]) is None
+
+    tep = tmp_path / "vietnews.jsonl"
+    pd.DataFrame(
+        {"guid": [1], "title": ["t"], "abstract": ["tóm tắt"], "article": ["nội dung"]}
+    ).to_json(tep, orient="records", lines=True, force_ascii=False)
+    df = load_dataset(tep)
+    assert list(df.columns) == ["text", "summary"]
+    assert df.loc[0, "text"] == "nội dung" and df.loc[0, "summary"] == "tóm tắt"
+
+
 def test_bao_loi_khi_thieu_cot(tmp_path):
     tep = tmp_path / "sai.csv"
     pd.DataFrame({"noi_dung": ["a"], "tom_tat": ["b"]}).to_csv(tep, index=False)
-    with pytest.raises(ValueError, match="thiếu cột"):
+    with pytest.raises(ValueError, match="Không tự nhận được tên cột"):
         load_dataset(tep)
+    with pytest.raises(ValueError, match="thiếu cột"):
+        load_dataset(tep, text_col="noi_dung", summary_col="khong_co")
+    with pytest.raises(ValueError, match="cả tên cột"):
+        load_dataset(tep, text_col="noi_dung")
     assert len(load_dataset(tep, text_col="noi_dung", summary_col="tom_tat")) == 1
 
 

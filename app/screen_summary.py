@@ -237,7 +237,7 @@ def render() -> None:
     page_header(
         "Màn 2 · Ứng dụng",
         "Tóm tắt văn bản bằng NMF",
-        "Chọn một bài mẫu hoặc dán văn bản của bạn. NMF tìm các chủ đề trong bài, rồi chọn "
+        "Chọn một bài mẫu hoặc dán văn bản. NMF tìm các chủ đề trong bài, rồi chọn "
         "những câu tiêu biểu nhất của từng chủ đề làm bản tóm tắt.",
     )
 

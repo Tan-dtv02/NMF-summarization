@@ -11,13 +11,13 @@ Chương trình đọc tệp `.csv`, `.jsonl` hoặc `.parquet`, mỗi dòng m�
 
 Các cột khác (tiêu đề, mã bài...) được bỏ qua. Tệp CSV lưu bằng mã UTF-8.
 
-Nếu bộ dữ liệu tải về dùng tên cột khác thì không cần sửa tệp, chỉ cần chỉ ra tên cột:
+Cặp cột `article` (nội dung) và `abstract` (tóm tắt tham chiếu) của VietNews cũng được tự nhận, cả ở dòng lệnh lẫn ở màn 3.
+
+Nếu bộ dữ liệu tải về dùng tên cột khác thì không cần sửa tệp, chỉ cần chỉ ra tên cột khi chạy từ dòng lệnh:
 
 ```
-python -m src.evaluate --data data\raw\ten_tep.csv --text-col article --summary-col abstract
+python -m src.evaluate --data data\raw\ten_tep.csv --text-col noi_dung --summary-col tom_tat
 ```
-
-Ở màn 3 của ứng dụng cũng có hai ô để gõ tên cột.
 
 ## `sample/`
 

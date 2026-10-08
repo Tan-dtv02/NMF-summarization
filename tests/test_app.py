@@ -105,6 +105,38 @@ def test_man_3_mo_duoc():
     assert not app.exception
 
 
+def test_man_3_chay_lai_chi_can_chon_so_bai(tmp_path, monkeypatch):
+    """Khung chạy lại không còn ô tên cột, có ô chọn cách chọn câu, chạy được cả Điểm tổng."""
+    app = open_screen("Thử nghiệm")
+    assert not app.text_input  # tên cột được tự nhận
+    so_bai = next(n for n in app.number_input if n.label == "Số bài")
+    assert so_bai.max == 10_000
+    cach_chon = next(r for r in app.radio if r.label == "Cách chọn câu")
+    assert cach_chon.options == ["Phủ chủ đề", "Điểm tổng"] and cach_chon.value == "coverage"
+
+    # Ghi kết quả vào thư mục tạm để bài kiểm tra không để lại tệp trong results/.
+    import src.evaluate
+
+    monkeypatch.setattr(src.evaluate, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(sys.modules["screen_experiment"], "RESULTS_DIR", tmp_path)
+    tep = next(s for s in app.selectbox if s.label == "Tệp dữ liệu")
+    tep.select_index(next(i for i, o in enumerate(tep.options) if o.startswith("bai_mau.csv")))
+    so_bai.set_value(2)
+    cach_chon.set_value("score")
+    button(app, "Chạy thử nghiệm").click().run()
+    assert not app.exception
+    # Chỉ có cảnh báo "dữ liệu mẫu", không có cảnh báo thiếu cột.
+    assert [w for w in app.warning if "CHẠY THỬ" not in w.value] == []
+
+    (ket_qua,) = tmp_path.glob("rouge_*.csv")
+    bang = pd.read_csv(ket_qua, encoding="utf-8-sig")
+    assert set(bang["cach_chon_cau"]) == {"score"} and set(bang["so_bai"]) == {2}
+    # Chạy xong thì màn hình chuyển ngay sang lần vừa chạy.
+    lan_chay = next(s for s in app.selectbox if s.label == "Lần chạy (mới nhất ở trên)")
+    assert lan_chay.value == ket_qua.name
+    assert any("Đã lưu kết quả" in s.value for s in app.success)
+
+
 def test_man_3_bieu_do_co_dong_muc_tran():
     """Dòng mức trần được nhận ra và xếp vào nhóm màu riêng, không lẫn với NMF hay đối chứng."""
     sys.path.insert(0, str(APP_DIR))  # các tệp giao diện gọi nhau theo tên tệp
