@@ -35,17 +35,17 @@ python -m src.evaluate --data data\raw\test_desegmented.jsonl --limit 300
 
 Kết quả được lưu thành một tệp CSV `results/rouge_<tệp dữ liệu>_<ngày giờ>.csv` và hiện ở màn 3 (lần chạy mới nhất đứng đầu danh sách). Mỗi lần chạy chấm NMF với từng giá trị k, hai cách đối chứng và mức trần trên cùng một tập bài. Các tham số:
 
-| Tham số                       | Ý nghĩa                                          | Mặc định          |
-| ----------------------------- | ------------------------------------------------ | ----------------- |
-| `--data`                      | tệp `.csv`, `.jsonl` hoặc `.parquet`             | bắt buộc          |
-| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu       | tự nhận (*)       |
-| `--limit`                     | chỉ chạy trên N bài đầu                          | tất cả            |
-| `--k`                         | các giá trị k, ví dụ `--k 2 3 4 5`               | 2 3 4 5           |
-| `--n-sentences`               | số câu của bản tóm tắt                           | 3                 |
-| `--strategy`                  | `coverage` (phủ chủ đề) hoặc `score` (điểm tổng) | `coverage`        |
-| `--seed`                      | hạt giống của cách đối chứng chọn câu ngẫu nhiên | 42                |
+| Tham số                       | Ý nghĩa                                          | Mặc định     |
+| ----------------------------- | ------------------------------------------------ | ------------ |
+| `--data`                      | tệp `.csv`, `.jsonl` hoặc `.parquet`             | bắt buộc     |
+| `--text-col`, `--summary-col` | tên cột nội dung và cột tóm tắt tham chiếu       | tự nhận (\*) |
+| `--limit`                     | chỉ chạy trên N bài đầu                          | tất cả       |
+| `--k`                         | các giá trị k, ví dụ `--k 2 3 4 5`               | 2 3 4 5      |
+| `--n-sentences`               | số câu của bản tóm tắt                           | 3            |
+| `--strategy`                  | `coverage` (phủ chủ đề) hoặc `score` (điểm tổng) | `coverage`   |
+| `--seed`                      | hạt giống của cách đối chứng chọn câu ngẫu nhiên | 42           |
 
-(*) Hai cặp tên cột được tự nhận: `text`/`summary` (dữ liệu mẫu) và `article`/`abstract` (VietNews). Tệp dùng tên cột khác thì phải chỉ ra bằng hai tham số này.
+(\*) Hai cặp tên cột được tự nhận: `text`/`summary` (dữ liệu mẫu) và `article`/`abstract` (VietNews). Tệp dùng tên cột khác thì phải chỉ ra bằng hai tham số này.
 
 Màn 3 cũng chạy lại được ngay trên giao diện (khung "Chạy lại thử nghiệm"): chọn tệp, số bài (tối đa 10.000) và cách chọn câu, tên cột được tự nhận.
 
@@ -77,7 +77,7 @@ Các bài này đều là bài mẫu soạn để chạy thử, mỗi mảng nó
 
 ## Kết quả trên 300 bài báo thật
 
-Chạy trên 300 bài đầu của `data/raw/test_desegmented.jsonl`, bản tóm tắt 3 câu, điểm F1. "Cũ" là lần chạy 04/10/2026 (trước khi sửa pipeline), "mới" là lần chạy 07/10/2026. Bảng đầy đủ cho mọi k và cả ROUGE-L nằm ở `results/so_sanh_300_bai_20261007.csv`.
+Chạy trên 300 bài đầu của `data/raw/test_desegmented.jsonl`, bản tóm tắt 3 câu, điểm F1. "Cũ" là lần chạy 04/10/2026 (trước khi sửa pipeline), "mới" là lần chạy 07/10/2026. Bảng đầy đủ cho mọi k và cả ROUGE-L nằm ở `results/so_sanh_300_bai_20261007.csv`. (Còn nhiều result CSV khác bao gồm 10-50-100-300-1000-3000 bài báo, giới hạn chạy thử là 10000/~23000 bài báo của VietNews)
 
 | Phương pháp               | ROUGE-1 cũ | ROUGE-1 mới | ROUGE-2 cũ | ROUGE-2 mới |
 | ------------------------- | ---------- | ----------- | ---------- | ----------- |
